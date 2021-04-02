@@ -2,21 +2,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import absolute_import, print_function, unicode_literals
 
-from io import (
-    BytesIO,
-    UnsupportedOperation,
-)
-import struct
-import zlib
+from __future__ import print_function, unicode_literals
+from collections import OrderedDict
+from io import BytesIO, UnsupportedOperation
+from zipfile import ZIP_STORED, ZIP_DEFLATED
+
 import os
 import six
-from zipfile import (
-    ZIP_STORED,
-    ZIP_DEFLATED,
-)
-from collections import OrderedDict
+import struct
+import zlib
+
 import brotli
 
 
@@ -831,23 +827,3 @@ class BrotliCompress(object):
 
     def flush(self):
         return brotli.compress(self._buf.getvalue(), lgwin=17)
-
-
-class JarLog(dict):
-    '''
-    Helper to read the file Gecko generates when setting MOZ_JAR_LOG_FILE.
-    The jar log is then available as a dict with the jar path as key, and
-    the corresponding access log as a list value. Only the first access to
-    a given member of a jar is stored.
-    '''
-
-    def __init__(self, file=None, fileobj=None):
-        if not fileobj:
-            fileobj = open(file, 'r')
-        for line in fileobj:
-            jar, path = line.strip().split(None, 1)
-            if not jar or not path:
-                continue
-            entry = self.setdefault(jar, [])
-            if path not in entry:
-                entry.append(path)
