@@ -9,7 +9,6 @@ from io import (
     UnsupportedOperation,
 )
 import struct
-import subprocess
 import zlib
 import os
 import six
@@ -18,6 +17,7 @@ from zipfile import (
     ZIP_DEFLATED,
 )
 from collections import OrderedDict
+import brotli
 
 
 JAR_STORED = ZIP_STORED
@@ -334,7 +334,7 @@ class JarFileReader(object):
         if self.compress == JAR_STORED:
             data = data.tobytes()
         elif self.compress == JAR_BROTLI:
-            data = Brotli.decompress(data.tobytes())
+            data = brotli.decompress(data.tobytes())
         elif self.compress == JAR_DEFLATED:
             data = zlib.decompress(data.tobytes(), -MAX_WBITS)
         else:
@@ -821,33 +821,6 @@ class Deflater(object):
         return self._data.getvalue()
 
 
-class Brotli(object):
-    @staticmethod
-    def brotli_tool():
-        from buildconfig import topobjdir, substs
-        return os.path.join(topobjdir, 'dist', 'host', 'bin',
-                            'bro' + substs.get('BIN_SUFFIX', ''))
-
-    @staticmethod
-    def run_brotli_tool(args, input):
-        proc = subprocess.Popen([Brotli.brotli_tool()] + args,
-                                stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE)
-        (stdout, _) = proc.communicate(input)
-        ret = proc.wait()
-        if ret != 0:
-            raise Exception("Brotli compression failed")
-        return stdout
-
-    @staticmethod
-    def compress(data):
-        return Brotli.run_brotli_tool(['--window', '17'], data)
-
-    @staticmethod
-    def decompress(data):
-        return Brotli.run_brotli_tool(['--decompress'], data)
-
-
 class BrotliCompress(object):
     def __init__(self):
         self._buf = BytesIO()
@@ -857,7 +830,7 @@ class BrotliCompress(object):
         return b''
 
     def flush(self):
-        return Brotli.compress(self._buf.getvalue())
+        return brotli.compress(self._buf.getvalue(), lgwin=17)
 
 
 class JarLog(dict):
