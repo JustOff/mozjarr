@@ -1,20 +1,27 @@
+#!/usr/bin/env python
+
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+# Copyright (c) 2021 JustOff. All rights reserved.
+# Copyright (c) 2013-2020 Mozilla and individual contributors.
+
+'''MozJAR Recompressor 1.0.1, https://github.com/JustOff/mozjarr'''
 
 from __future__ import print_function, unicode_literals
 from collections import OrderedDict
 from io import BytesIO, UnsupportedOperation
 from zipfile import ZIP_STORED, ZIP_DEFLATED
 
+import argparse
 import os
 import six
 import struct
+import sys
 import zlib
 
 import brotli
-
 
 JAR_STORED = ZIP_STORED
 JAR_DEFLATED = ZIP_DEFLATED
@@ -827,3 +834,50 @@ class BrotliCompress(object):
 
     def flush(self):
         return brotli.compress(self._buf.getvalue(), lgwin=17)
+
+
+def main(args=None):
+    parser = argparse.ArgumentParser(description=__doc__, add_help=False)
+    parser.add_argument(
+        'infile', type=str, help='input file')
+    parser.add_argument(
+        'outfile', type=str, nargs='?', help='output file', default=None)
+    parser.add_argument(
+        '-b', '--brotli', action='store_true',
+        help='compress using Brotli encoder', default=False)
+    parser.add_argument(
+        '-f', '--force', action='store_true',
+        help='overwrite existing output file', default=False)
+
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
+    options = parser.parse_args(args=args)
+
+    if not os.path.isfile(options.infile):
+        parser.error('input file "%s" not found' % options.infile)
+
+    if options.outfile == None:
+        options.outfile = os.path.splitext(options.infile)[0] + '.jar'
+        if options.outfile == options.infile:
+            options.outfile += ".jar"
+
+    if os.path.isfile(options.outfile):
+        if options.force:
+            os.remove(options.outfile)
+        else:
+            parser.error('output file "%s" exists' % options.outfile)
+
+    if options.brotli:
+        compress = JAR_BROTLI
+    else:
+        compress = JAR_DEFLATED
+
+    with JarWriter(file=options.outfile, compress=compress) as jar:
+        for entry in JarReader(file=options.infile):
+            jar.add(entry.filename, entry)
+
+
+if __name__ == '__main__':
+    main()
