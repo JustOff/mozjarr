@@ -18,11 +18,6 @@ from zipfile import (
     ZIP_DEFLATED,
 )
 from collections import OrderedDict
-import mozpack.path as mozpath
-from mozbuild.util import (
-    memoize,
-    ensure_bytes,
-)
 
 
 JAR_STORED = ZIP_STORED
@@ -138,6 +133,11 @@ class JarStruct(object):
             data = data.tobytes()
         return struct.unpack(b'<' + format, data)[0], size
 
+    def ensure_bytes(value, encoding='utf-8'):
+        if isinstance(value, six.text_type):
+            return value.encode(encoding)
+        return value
+
     def serialize(self):
         '''
         Serialize the data structure according to the data structure definition
@@ -156,7 +156,7 @@ class JarStruct(object):
                     value = self[name]
                 serialized += struct.pack(b'<' + format, value)
             else:
-                serialized += ensure_bytes(self[name])
+                serialized += JarStruct.ensure_bytes(self[name])
         return serialized
 
     @property
@@ -599,6 +599,25 @@ class JarWriter(object):
         self._data.write(end.serialize())
         self._data.close()
 
+    def normsep(path):
+        '''
+        Normalize path separators, by using forward slashes instead of whatever
+        :py:const:`os.sep` is.
+        '''
+        if os.sep != '/':
+            # Python 2 is happy to do things like byte_string.replace(u'foo',
+            # u'bar'), but not Python 3.
+            if isinstance(path, bytes):
+                path = path.replace(os.sep.encode('ascii'), b'/')
+            else:
+                path = path.replace(os.sep, '/')
+        if os.altsep and os.altsep != '/':
+            if isinstance(path, bytes):
+                path = path.replace(os.altsep.encode('ascii'), b'/')
+            else:
+                path = path.replace(os.altsep, '/')
+        return path
+
     def add(self, name, data, compress=None, mode=None, skip_duplicates=False):
         '''
         Add a new member to the jar archive, with the given name and the given
@@ -618,7 +637,7 @@ class JarWriter(object):
         JarFileReader instance. The latter two allow to avoid uncompressing
         data to recompress it.
         '''
-        name = mozpath.normsep(six.ensure_text(name))
+        name = JarWriter.normsep(six.ensure_text(name))
 
         if name in self._contents and not skip_duplicates:
             raise JarWriterError("File %s already in JarWriter" % name)
@@ -804,7 +823,6 @@ class Deflater(object):
 
 class Brotli(object):
     @staticmethod
-    @memoize
     def brotli_tool():
         from buildconfig import topobjdir, substs
         return os.path.join(topobjdir, 'dist', 'host', 'bin',
