@@ -850,13 +850,20 @@ def main(args=None):
         help='compress using Brotli encoder', default=False)
     parser.add_argument(
         '-f', '--force', action='store_true',
-        help='overwrite existing output file', default=False)
+        help='overwrite existing output and preload files', default=False)
     parser.add_argument(
         '-o', '--optimize', action='store_true', dest='force_optimize',
         help='optimize Jar even without preload data', default=False)
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         '-p', '--preload', action='store_true',
-        help='use preload data to optimize Jar', default=False)
+        help='use preload data from input file', default=False)
+    group.add_argument(
+        '-r', '--read-preload', action='store_true',
+        help='read preload data from external file', default=False)
+    group.add_argument(
+        '-w', '--write-preload', action='store_true',
+        help='write preload data to external file', default=False)
 
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
@@ -883,14 +890,38 @@ def main(args=None):
     else:
         compress = JAR_DEFLATED
 
+    jr = JarReader(file=options.infile)
+
+    preload_file = os.path.splitext(options.infile)[0] + '.preload'
+    preload_data = None
+
+    if options.preload or options.write_preload:
+        if jr.last_preloaded:
+            files = list(jr.entries.keys())
+            preload_data = files[:files.index(jr.last_preloaded) + 1]
+            if options.write_preload:
+                if os.path.isfile(preload_file):
+                    if options.force:
+                        os.remove(preload_file)
+                    else:
+                        parser.error('preload file "%s" exists' % preload_file)
+                with open(preload_file, 'w') as pf:
+                    pf.writelines("%s\n" % line for line in preload_data)
+                preload_data = None
+        else:
+            parser.error('input file "%s" has no preload data' % options.infile)
+    elif options.read_preload:
+        if not os.path.isfile(preload_file):
+            parser.error('preload file "%s" not found' % preload_file)
+        with open(preload_file, 'r') as pf:
+            preload_data = [line.rstrip() for line in pf.readlines()]
+
     with JarWriter(file=options.outfile, compress=compress,
                    force_optimize=options.force_optimize) as jw:
-        jr = JarReader(file=options.infile)
         for entry in jr:
             jw.add(entry.filename, entry)
-        if options.preload and jr.last_preloaded:
-            files = list(jr.entries.keys())
-            jw.preload(files[:files.index(jr.last_preloaded) + 1])
+        if preload_data:
+            jw.preload(preload_data)
 
 
 if __name__ == '__main__':

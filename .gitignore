@@ -1,5 +1,6 @@
 *.ja
 *.jar
+*.preload
 *.res
 *.xpi
 *.zip
