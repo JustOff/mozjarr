@@ -848,6 +848,9 @@ def main(args=None):
     parser.add_argument(
         '-f', '--force', action='store_true',
         help='overwrite existing output file', default=False)
+    parser.add_argument(
+        '-p', '--preload', action='store_true',
+        help='use preload data to optimize Jar', default=False)
 
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
@@ -874,9 +877,13 @@ def main(args=None):
     else:
         compress = JAR_DEFLATED
 
-    with JarWriter(file=options.outfile, compress=compress) as jar:
-        for entry in JarReader(file=options.infile):
-            jar.add(entry.filename, entry)
+    with JarWriter(file=options.outfile, compress=compress) as jw:
+        jr = JarReader(file=options.infile)
+        for entry in jr:
+            jw.add(entry.filename, entry)
+        if options.preload and jr.last_preloaded:
+            files = list(jr.entries.keys())
+            jw.preload(files[:files.index(jr.last_preloaded) + 1])
 
 
 if __name__ == '__main__':
