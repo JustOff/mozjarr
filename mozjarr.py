@@ -891,6 +891,9 @@ def main(args=None):
         compress = JAR_DEFLATED
 
     jr = JarReader(file=options.infile)
+    print ('\n"%s" %s optimized and %s preload data\n' %
+           (options.infile, 'is' if jr.is_optimized else 'is not',
+            'has' if jr.last_preloaded else 'has no'))
 
     preload_file = os.path.splitext(options.infile)[0] + '.preload'
     preload_data = None
@@ -907,7 +910,10 @@ def main(args=None):
                         parser.error('preload file "%s" exists' % preload_file)
                 with open(preload_file, 'w') as pf:
                     pf.writelines("%s\n" % line for line in preload_data)
+                print ('Preload data successfully saved to "%s"' % preload_file)
                 preload_data = None
+            else:
+                print ('Using preload data from "%s"' % options.infile)
         else:
             parser.error('input file "%s" has no preload data' % options.infile)
     elif options.read_preload:
@@ -915,6 +921,7 @@ def main(args=None):
             parser.error('preload file "%s" not found' % preload_file)
         with open(preload_file, 'r') as pf:
             preload_data = [line.rstrip() for line in pf.readlines()]
+        print ('Using preload data from "%s"' % preload_file)
 
     with JarWriter(file=options.outfile, compress=compress,
                    force_optimize=options.force_optimize) as jw:
@@ -922,6 +929,8 @@ def main(args=None):
             jw.add(entry.filename, entry)
         if preload_data:
             jw.preload(preload_data)
+
+    print ('Archive successfully saved to "%s"' % options.outfile)
 
 
 if __name__ == '__main__':
