@@ -488,7 +488,8 @@ class JarWriter(object):
     for the close() member function for a description of both layouts.
     '''
 
-    def __init__(self, file=None, fileobj=None, compress=True, compress_level=9):
+    def __init__(self, file=None, fileobj=None, compress=True, compress_level=9,
+                 force_optimize=False):
         '''
         Initialize a Jar archive in the given file. Use the given file-like
         object if one is given instead of opening the given file name.
@@ -508,6 +509,7 @@ class JarWriter(object):
         self._compress_level = compress_level
         self._contents = OrderedDict()
         self._last_preloaded = None
+        self._force_optimize = force_optimize
 
     def __enter__(self):
         '''
@@ -577,10 +579,11 @@ class JarWriter(object):
                                             self._contents.values(), 0)
         # On optimized archives, store the preloaded size and the central
         # directory entries, followed by the first end of central directory.
-        if preload_size:
+        if preload_size or self._force_optimize:
             end['cdir_offset'] = 4
             offset = end['cdir_size'] + end['cdir_offset'] + end.size
-            preload_size += offset
+            if preload_size:
+                preload_size += offset
             self._data.write(struct.pack('<I', preload_size))
             for entry, _ in six.itervalues(self._contents):
                 entry['offset'] += offset
@@ -594,7 +597,7 @@ class JarWriter(object):
             else:
                 self._data.write(content)
         # On non optimized archives, store the central directory entries.
-        if not preload_size:
+        if not preload_size and not self._force_optimize:
             end['cdir_offset'] = offset
             for entry, _ in six.itervalues(self._contents):
                 self._data.write(entry.serialize())
@@ -849,6 +852,9 @@ def main(args=None):
         '-f', '--force', action='store_true',
         help='overwrite existing output file', default=False)
     parser.add_argument(
+        '-o', '--optimize', action='store_true', dest='force_optimize',
+        help='optimize Jar even without preload data', default=False)
+    parser.add_argument(
         '-p', '--preload', action='store_true',
         help='use preload data to optimize Jar', default=False)
 
@@ -877,7 +883,8 @@ def main(args=None):
     else:
         compress = JAR_DEFLATED
 
-    with JarWriter(file=options.outfile, compress=compress) as jw:
+    with JarWriter(file=options.outfile, compress=compress,
+                   force_optimize=options.force_optimize) as jw:
         jr = JarReader(file=options.infile)
         for entry in jr:
             jw.add(entry.filename, entry)
