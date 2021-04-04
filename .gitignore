@@ -1,6 +1,7 @@
 *.ja
 *.jar
 *.preload
+*.pyc
 *.res
 *.xpi
 *.zip
