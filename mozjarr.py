@@ -7,7 +7,7 @@
 # Copyright (c) 2021 JustOff. All rights reserved.
 # Copyright (c) 2013-2020 Mozilla and individual contributors.
 
-'''MozJAR Recompressor 1.0.2, https://github.com/JustOff/mozjarr'''
+'''MozJAR Recompressor 1.0.3, https://github.com/JustOff/mozjarr'''
 
 from __future__ import print_function, unicode_literals
 from collections import OrderedDict
