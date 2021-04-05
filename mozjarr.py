@@ -845,23 +845,30 @@ def main(args=None):
         'infile', type=str, help='input file')
     parser.add_argument(
         'outfile', type=str, nargs='?', help='output file', default=None)
-    parser.add_argument(
+    group1 = parser.add_mutually_exclusive_group()
+    group1.add_argument(
+        '-d', '--deflate', action='store_true',
+        help='use Deflate encoder (default)', default=True)
+    group1.add_argument(
         '-b', '--brotli', action='store_true',
-        help='compress using Brotli encoder', default=False)
+        help='use Brotli encoder', default=False)
+    group1.add_argument(
+        '-s', '--store', action='store_true',
+        help='do not compress', default=False)
     parser.add_argument(
         '-f', '--force', action='store_true',
         help='overwrite existing output and preload files', default=False)
     parser.add_argument(
         '-o', '--optimize', action='store_true', dest='force_optimize',
         help='optimize Jar even without preload data', default=False)
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
+    group2 = parser.add_mutually_exclusive_group()
+    group2.add_argument(
         '-p', '--preload', action='store_true',
         help='use preload data from input file', default=False)
-    group.add_argument(
+    group2.add_argument(
         '-r', '--read-preload', action='store_true',
         help='read preload data from external file', default=False)
-    group.add_argument(
+    group2.add_argument(
         '-w', '--write-preload', action='store_true',
         help='write preload data to external file', default=False)
 
@@ -887,6 +894,8 @@ def main(args=None):
 
     if options.brotli:
         compress = JAR_BROTLI
+    elif options.store:
+        compress = JAR_STORED
     else:
         compress = JAR_DEFLATED
 
