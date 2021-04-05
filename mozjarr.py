@@ -900,8 +900,18 @@ def main(args=None):
         compress = JAR_DEFLATED
 
     jr = JarReader(file=options.infile)
-    print ('\n"%s" %s optimized and %s preload data\n' %
-           (options.infile, 'is' if jr.is_optimized else 'is not',
+
+    if jr.compression == JAR_DEFLATED:
+        compression = 'compressed with Deflate'
+    elif jr.compression == JAR_BROTLI:
+        compression = 'compressed with Brotli'
+    elif jr.compression == JAR_STORED:
+        compression = 'not compressed'
+    else:
+        parser.error('Something went wrong!')
+
+    print ('\n"%s" is %s, %s optimized and %s preload data\n' %
+           (options.infile, compression, 'is' if jr.is_optimized else 'is not',
             'has' if jr.last_preloaded else 'has no'))
 
     preload_file = os.path.splitext(options.infile)[0] + '.preload'
