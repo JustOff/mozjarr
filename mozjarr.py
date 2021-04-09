@@ -29,6 +29,38 @@ JAR_BROTLI = 0x81
 MAX_WBITS = 15
 
 
+class Utils:
+    '''
+    Dependencies integrated from mozpack and mozbuild.
+    '''
+
+    @staticmethod
+    def normsep(path):
+        '''
+        Normalize path separators, by using forward slashes instead of whatever
+        :py:const:`os.sep` is.
+        '''
+        if os.sep != '/':
+            # Python 2 is happy to do things like byte_string.replace(u'foo',
+            # u'bar'), but not Python 3.
+            if isinstance(path, bytes):
+                path = path.replace(os.sep.encode('ascii'), b'/')
+            else:
+                path = path.replace(os.sep, '/')
+        if os.altsep and os.altsep != '/':
+            if isinstance(path, bytes):
+                path = path.replace(os.altsep.encode('ascii'), b'/')
+            else:
+                path = path.replace(os.altsep, '/')
+        return path
+
+    @staticmethod
+    def ensure_bytes(value, encoding='utf-8'):
+        if isinstance(value, six.text_type):
+            return value.encode(encoding)
+        return value
+
+
 class JarReaderError(Exception):
     '''Error type for Jar reader errors.'''
 
@@ -136,11 +168,6 @@ class JarStruct(object):
             data = data.tobytes()
         return struct.unpack(b'<' + format, data)[0], size
 
-    def ensure_bytes(value, encoding='utf-8'):
-        if isinstance(value, six.text_type):
-            return value.encode(encoding)
-        return value
-
     def serialize(self):
         '''
         Serialize the data structure according to the data structure definition
@@ -159,7 +186,7 @@ class JarStruct(object):
                     value = self[name]
                 serialized += struct.pack(b'<' + format, value)
             else:
-                serialized += JarStruct.ensure_bytes(self[name])
+                serialized += Utils.ensure_bytes(self[name])
         return serialized
 
     @property
@@ -605,25 +632,6 @@ class JarWriter(object):
         self._data.write(end.serialize())
         self._data.close()
 
-    def normsep(path):
-        '''
-        Normalize path separators, by using forward slashes instead of whatever
-        :py:const:`os.sep` is.
-        '''
-        if os.sep != '/':
-            # Python 2 is happy to do things like byte_string.replace(u'foo',
-            # u'bar'), but not Python 3.
-            if isinstance(path, bytes):
-                path = path.replace(os.sep.encode('ascii'), b'/')
-            else:
-                path = path.replace(os.sep, '/')
-        if os.altsep and os.altsep != '/':
-            if isinstance(path, bytes):
-                path = path.replace(os.altsep.encode('ascii'), b'/')
-            else:
-                path = path.replace(os.altsep, '/')
-        return path
-
     def add(self, name, data, compress=None, mode=None, skip_duplicates=False):
         '''
         Add a new member to the jar archive, with the given name and the given
@@ -643,7 +651,7 @@ class JarWriter(object):
         JarFileReader instance. The latter two allow to avoid uncompressing
         data to recompress it.
         '''
-        name = JarWriter.normsep(six.ensure_text(name))
+        name = Utils.normsep(six.ensure_text(name))
 
         if name in self._contents and not skip_duplicates:
             raise JarWriterError("File %s already in JarWriter" % name)
